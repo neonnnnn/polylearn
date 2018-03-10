@@ -32,7 +32,7 @@ class _BaseFactorizationMachine(six.with_metaclass(ABCMeta, _BasePoly)):
     def __init__(self, degree=2, loss='squared', n_components=2, alpha=1,
                  beta=1, tol=1e-6, fit_lower='explicit', fit_linear=True,
                  warm_start=False, init_lambdas='ones', max_iter=10000,
-                 verbose=False, random_state=None):
+                 verbose=False, random_state=None, mean=True):
         self.degree = degree
         self.loss = loss
         self.n_components = n_components
@@ -46,6 +46,7 @@ class _BaseFactorizationMachine(six.with_metaclass(ABCMeta, _BasePoly)):
         self.max_iter = max_iter
         self.verbose = verbose
         self.random_state = random_state
+        self.mean = mean
 
     def _augment(self, X):
         # for factorization machines, we add a dummy column for each order.
@@ -111,7 +112,7 @@ class _BaseFactorizationMachine(six.with_metaclass(ABCMeta, _BasePoly)):
             self.P_, self.w_, dataset, X_col_norms, y, y_pred,
             self.lams_, self.degree, self.alpha, self.beta, self.fit_linear,
             self.fit_lower == 'explicit', loss_obj, self.max_iter,
-            self.tol, self.verbose)
+            self.tol, self.verbose, self.mean)
         if not converged:
             warnings.warn("Objective did not converge. Increase max_iter.")
 
@@ -241,12 +242,12 @@ class FactorizationMachineRegressor(_BaseFactorizationMachine,
     def __init__(self, degree=2, n_components=2, alpha=1, beta=1, tol=1e-6,
                  fit_lower='explicit', fit_linear=True, warm_start=False,
                  init_lambdas='ones', max_iter=10000, verbose=False,
-                 random_state=None):
+                 random_state=None, mean=True):
 
         super(FactorizationMachineRegressor, self).__init__(
             degree, 'squared', n_components, alpha, beta, tol, fit_lower,
             fit_linear, warm_start, init_lambdas, max_iter, verbose,
-            random_state)
+            random_state, mean)
 
 
 class FactorizationMachineClassifier(_BaseFactorizationMachine,
@@ -361,9 +362,9 @@ class FactorizationMachineClassifier(_BaseFactorizationMachine,
     def __init__(self, degree=2, loss='squared_hinge', n_components=2, alpha=1,
                  beta=1, tol=1e-6, fit_lower='explicit', fit_linear=True,
                  warm_start=False, init_lambdas='ones', max_iter=10000,
-                 verbose=False, random_state=None):
+                 verbose=False, random_state=None, mean=True):
 
         super(FactorizationMachineClassifier, self).__init__(
             degree, loss, n_components, alpha, beta, tol, fit_lower,
             fit_linear, warm_start, init_lambdas, max_iter, verbose,
-            random_state)
+            random_state, mean)

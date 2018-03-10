@@ -25,12 +25,12 @@ cdef void _precompute(ColumnDataset X,
 
     cdef Py_ssize_t n_samples = X.get_n_samples()
     cdef Py_ssize_t n_features = P.shape[2]
-    
+
     # Data pointers
     cdef double* data
     cdef int* indices
     cdef int n_nz
-    
+
     cdef Py_ssize_t i, j, ii
     cdef unsigned int d
     cdef double tmp
@@ -56,10 +56,11 @@ cdef inline double _update(int* indices,
                            double lam,
                            double beta,
                            double[:, ::1] D,
-                           double[:] cache_kp):
+                           double[:] cache_kp,
+                           unsigned int denominator):
 
     cdef double l1_reg = 2 * beta * fabs(lam)
-    
+
     cdef Py_ssize_t i, ii
 
     cdef double inv_step_size = 0
@@ -85,7 +86,7 @@ cdef inline double _update(int* indices,
 
     inv_step_size *= loss.mu
     inv_step_size += l1_reg
-
+    update /= denominator
     update += l1_reg * p_js
     update /= inv_step_size
 
@@ -102,7 +103,8 @@ cdef inline double _cd_direct_epoch(double[:, :, ::1] P,
                                     double beta,
                                     LossFunction loss,
                                     double[:, ::1] D,
-                                    double[:] cache_kp):
+                                    double[:] cache_kp,
+                                    unsigned int denominator):
 
     cdef Py_ssize_t s, j
     cdef double p_old, update, offset
@@ -129,7 +131,8 @@ cdef inline double _cd_direct_epoch(double[:, :, ::1] P,
             # compute coordinate update
             p_old = P[order, s, j]
             update = _update(indices, data, n_nz, p_old, y, y_pred,
-                             loss, degree, lams[s], beta, D, cache_kp)
+                             loss, degree, lams[s], beta, D, cache_kp,
+                             denominator)
             P[order, s, j] -= update
             sum_viol += fabs(update)
 
@@ -161,10 +164,11 @@ def _cd_direct_ho(double[:, :, ::1] P not None,
                   LossFunction loss,
                   unsigned int max_iter,
                   double tol,
-                  int verbose):
+                  int verbose, 
+                  bint mean=True):
 
     cdef Py_ssize_t n_samples = X.get_n_samples()
-    cdef unsigned int it
+    cdef unsigned int it, denominator
 
     cdef double viol
     cdef bint converged = False
@@ -173,18 +177,23 @@ def _cd_direct_ho(double[:, :, ::1] P not None,
     cdef double[:, ::1] D = array((degree - 1, n_samples), sizeof(double), 'd')
     cdef double[:] cache_kp = array((n_samples,), sizeof(double), 'd')
 
+    if mean:
+        denominator = n_samples
+    else:
+        denominator = 1
+
     for it in range(max_iter):
         viol = 0
 
         if fit_linear:
-            viol += _cd_linear_epoch(w, X, y, y_pred, col_norm_sq, alpha, loss)
+            viol += _cd_linear_epoch(w, X, y, y_pred, col_norm_sq, alpha, loss, denominator)
 
         if fit_lower and degree == 3:  # fit degree 2. Will be looped later.
             viol += _cd_direct_epoch(P, 1, X, y, y_pred, lams, 2, beta, loss,
-                                     D, cache_kp)
+                                     D, cache_kp, denominator)
 
         viol += _cd_direct_epoch(P, 0, X, y, y_pred, lams, degree, beta, loss,
-                                 D, cache_kp)
+                                 D, cache_kp, denominator)
 
         if verbose:
             print("Iteration", it + 1, "violation sum", viol)

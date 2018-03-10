@@ -111,15 +111,15 @@ def _cd_lifted(double[:, :, ::1] U,
                LossFunction loss,
                int max_iter,
                double tol,
-               int verbose):
+               int verbose,
+               bint mean):
 
     cdef Py_ssize_t n_samples = X.get_n_samples()
     cdef Py_ssize_t n_features = X.get_n_features()
     cdef Py_ssize_t degree = U.shape[0]
     cdef Py_ssize_t n_components = U.shape[1]
     cdef Py_ssize_t t, s, j
-    cdef int it
-
+    cdef unsigned int it, denominator
     cdef double sum_viol
     cdef bint converged = False
 
@@ -135,6 +135,10 @@ def _cd_lifted(double[:, :, ::1] U,
     cdef int* indices
     cdef int n_nz
 
+    if mean:
+        denominator = n_samples
+    else:
+        mean = 1
     for it in range(max_iter):
         sum_viol = 0
         for t in range(degree):
@@ -157,6 +161,7 @@ def _cd_lifted(double[:, :, ::1] U,
                     inv_step_size *= loss.mu
                     inv_step_size += beta
 
+                    update /= denominator
                     update += beta * u_old
                     update /= inv_step_size
 
