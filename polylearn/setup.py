@@ -1,5 +1,5 @@
+from lightning._build_utils import maybe_cythonize_extensions
 import os.path
-
 import numpy
 
 
@@ -10,18 +10,22 @@ def configuration(parent_package='', top_path=None):
 
     config.add_extension('loss_fast', sources=['loss_fast.cpp'],
                          include_dirs=[numpy.get_include()])
-
-    config.add_extension('cd_direct_fast', sources=['cd_direct_fast.cpp'],
+    config.add_extension('cd_direct_fast', sources=['cd_direct_fast.pyx'],
+                         language='c++',
                          include_dirs=[numpy.get_include()])
-
-    config.add_extension('cd_linear_fast', sources=['cd_linear_fast.cpp'],
+    config.add_extension('cd_direct_arbitrary',
+                         sources=['cd_direct_arbitrary.pyx'],
+                         language='c++',
                          include_dirs=[numpy.get_include()])
-
+    config.add_extension('cd_linear_fast', sources=['cd_linear_fast.pyx'],
+                         language='c++',
+                         include_dirs=[numpy.get_include()])
     config.add_extension('cd_lifted_fast', sources=['cd_lifted_fast.cpp'],
                          include_dirs=[numpy.get_include()])
 
     config.add_subpackage('tests')
 
+    maybe_cythonize_extensions(top_path, config)
     return config
 
 

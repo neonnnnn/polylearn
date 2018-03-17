@@ -17,11 +17,16 @@ from polylearn import FactorizationMachineClassifier
 
 
 def cd_direct_slow(X, y, lams=None, degree=2, n_components=5, beta=1.,
-                   n_iter=10, tol=1e-5, verbose=False, random_state=None):
+                   n_iter=10, tol=1e-5, verbose=False, random_state=None,
+                   mean=False):
     from sklearn.utils import check_random_state
     from polylearn.kernels import anova_kernel
 
     n_samples, n_features = X.shape
+    if mean:
+        denominator = n_samples
+    else:
+        denominator = 1
 
     rng = check_random_state(random_state)
     P = 0.01 * rng.randn(n_components, n_features)
@@ -49,17 +54,15 @@ def cd_direct_slow(X, y, lams=None, degree=2, n_components=5, beta=1.,
 
                 if degree == 2:
                     grad_y = lams[s] * x * np.dot(X_notj, ps_notj)
-                elif degree == 3:
-                    grad_y = lams[s] * x * anova_kernel(np.atleast_2d(ps_notj),
-                                                        X_notj, degree=2)
                 else:
-                    raise NotImplementedError("Degree > 3 not supported.")
+                    grad_y = lams[s] * x * anova_kernel(np.atleast_2d(ps_notj),
+                                                        X_notj, degree=degree-1)
 
                 l1_reg = 2 * beta * np.abs(lams[s])
-                inv_step_size = mu * (grad_y ** 2).sum() + l1_reg
+                inv_step_size = mu * (grad_y ** 2).sum()/denominator + l1_reg
 
                 dloss = pred - y  # squared loss
-                step = (dloss * grad_y).sum() + l1_reg * ps[j]
+                step = (dloss * grad_y).sum()/denominator + l1_reg * ps[j]
                 step /= inv_step_size
 
                 P[s, j] -= step
@@ -86,7 +89,7 @@ def cd_direct_slow(X, y, lams=None, degree=2, n_components=5, beta=1.,
 
 
 n_components = 5
-n_features = 4
+n_features = 10
 n_samples = 20
 
 rng = np.random.RandomState(1)
@@ -132,6 +135,8 @@ def check_fit(degree):
 def test_fit():
     yield check_fit, 2
     yield check_fit, 3
+    yield check_fit, 4
+    yield check_fit, 5
 
 
 def check_improve(degree):
@@ -155,6 +160,8 @@ def check_improve(degree):
 def test_improve():
     yield check_improve, 2
     yield check_improve, 3
+    yield check_improve, 4
+    yield check_improve, 5
 
 
 def check_overfit(degree):
@@ -186,6 +193,8 @@ def check_overfit(degree):
 def test_overfit():
     yield check_overfit, 2
     yield check_overfit, 3
+    yield check_overfit, 4
+    yield check_overfit, 5
 
 
 def test_convergence_warning():
@@ -216,13 +225,14 @@ def test_random_starts():
     assert_less_equal(np.std(scores), 0.001)
 
 
-def check_same_as_slow(degree):
+def check_same_as_slow(degree, mean):
     y = _poly_predict(X, P, lams, kernel="anova", degree=degree)
 
     reg = FactorizationMachineRegressor(degree=degree, n_components=5,
                                         fit_lower=None, fit_linear=False,
                                         beta=1, warm_start=False, tol=1e-3,
-                                        max_iter=5, random_state=0)
+                                        max_iter=5, random_state=0,
+                                        mean=mean)
 
     with warnings.catch_warnings():
         warnings.simplefilter('ignore')
@@ -230,14 +240,20 @@ def check_same_as_slow(degree):
 
         P_fit_slow = cd_direct_slow(X, y, lams=reg.lams_, degree=degree,
                                     n_components=5, beta=1, n_iter=5,
-                                    tol=1e-3, random_state=0)
+                                    tol=1e-3, random_state=0, mean=mean)
 
     assert_array_almost_equal(reg.P_[0, :, :], P_fit_slow, decimal=4)
 
 
 def test_same_as_slow():
-    yield check_same_as_slow, 2
-    yield check_same_as_slow, 3
+    yield check_same_as_slow, 2, False
+    yield check_same_as_slow, 2, True
+    yield check_same_as_slow, 3, False
+    yield check_same_as_slow, 3, True
+    yield check_same_as_slow, 4, False
+    yield check_same_as_slow, 4, True
+    yield check_same_as_slow, 5, False
+    yield check_same_as_slow, 5, True
 
 
 def check_classification_losses(loss, degree):
@@ -338,3 +354,5 @@ def check_warm_start(degree):
 def test_warm_start():
     yield check_warm_start, 2
     yield check_warm_start, 3
+    yield check_warm_start, 4
+    yield check_warm_start, 5

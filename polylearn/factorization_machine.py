@@ -24,20 +24,24 @@ from lightning.impl.dataset_fast import get_dataset
 from .base import _BasePoly, _PolyClassifierMixin, _PolyRegressorMixin
 from .kernels import _poly_predict
 from .cd_direct_fast import _cd_direct_ho
+from .cd_direct_arbitrary import _cd_direct_arbitrary
 
 
 class _BaseFactorizationMachine(six.with_metaclass(ABCMeta, _BasePoly)):
 
     @abstractmethod
     def __init__(self, degree=2, loss='squared', n_components=2, alpha=1,
-                 beta=1, tol=1e-6, fit_lower='explicit', fit_linear=True,
-                 warm_start=False, init_lambdas='ones', max_iter=10000,
-                 verbose=False, random_state=None, mean=True):
+                 beta=1, optimizer='cd_direct_ho', mean=False, tol=1e-6,
+                 fit_lower='explicit', fit_linear=True, warm_start=False,
+                 init_lambdas='ones', max_iter=10000, verbose=False,
+                 random_state=None):
         self.degree = degree
         self.loss = loss
         self.n_components = n_components
         self.alpha = alpha
         self.beta = beta
+        self.optimizer = optimizer
+        self.mean = mean
         self.tol = tol
         self.fit_lower = fit_lower
         self.fit_linear = fit_linear
@@ -46,7 +50,6 @@ class _BaseFactorizationMachine(six.with_metaclass(ABCMeta, _BasePoly)):
         self.max_iter = max_iter
         self.verbose = verbose
         self.random_state = random_state
-        self.mean = mean
 
     def _augment(self, X):
         # for factorization machines, we add a dummy column for each order.
@@ -74,8 +77,6 @@ class _BaseFactorizationMachine(six.with_metaclass(ABCMeta, _BasePoly)):
         self : Estimator
             Returns self.
         """
-        if self.degree > 3:
-            raise ValueError("FMs with degree >3 not yet supported.")
 
         X, y = self._check_X_y(X, y)
         X = self._augment(X)
@@ -108,7 +109,12 @@ class _BaseFactorizationMachine(six.with_metaclass(ABCMeta, _BasePoly)):
 
         y_pred = self._get_output(X)
 
-        converged, self.n_iter_ = _cd_direct_ho(
+        if self.degree <= 3:
+            optimizer = globals()['_'+self.optimizer]
+        else:
+            optimizer = _cd_direct_arbitrary
+
+        converged, self.n_iter_ = optimizer(
             self.P_, self.w_, dataset, X_col_norms, y, y_pred,
             self.lams_, self.degree, self.alpha, self.beta, self.fit_linear,
             self.fit_lower == 'explicit', loss_obj, self.max_iter,
@@ -125,10 +131,11 @@ class _BaseFactorizationMachine(six.with_metaclass(ABCMeta, _BasePoly)):
         if self.fit_linear:
             y_pred += safe_sparse_dot(X, self.w_)
 
-        if self.fit_lower == 'explicit' and self.degree == 3:
-            # degree cannot currently be > 3
-            y_pred += _poly_predict(X, self.P_[1, :, :], self.lams_,
-                                    kernel='anova', degree=2)
+        if self.fit_lower == 'explicit':
+            for degree in range(2, self.degree):
+                y_pred += _poly_predict(X, self.P_[self.degree-degree, :, :],
+                                        self.lams_, kernel='anova',
+                                        degree=degree)
 
         return y_pred
 
@@ -239,15 +246,16 @@ class FactorizationMachineRegressor(_BaseFactorizationMachine,
     Steffen Rendle
     In: Proceedings of IEEE 2010.
     """
-    def __init__(self, degree=2, n_components=2, alpha=1, beta=1, tol=1e-6,
+    def __init__(self, degree=2, n_components=2, alpha=1, beta=1,
+                 optimizer='cd_direct_ho', mean=False, tol=1e-6,
                  fit_lower='explicit', fit_linear=True, warm_start=False,
                  init_lambdas='ones', max_iter=10000, verbose=False,
-                 random_state=None, mean=True):
+                 random_state=None):
 
         super(FactorizationMachineRegressor, self).__init__(
-            degree, 'squared', n_components, alpha, beta, tol, fit_lower,
-            fit_linear, warm_start, init_lambdas, max_iter, verbose,
-            random_state, mean)
+            degree, 'squared', n_components, alpha, beta, optimizer, mean,
+            tol, fit_lower, fit_linear, warm_start, init_lambdas, max_iter,
+            verbose, random_state)
 
 
 class FactorizationMachineClassifier(_BaseFactorizationMachine,
@@ -360,11 +368,12 @@ class FactorizationMachineClassifier(_BaseFactorizationMachine,
     """
 
     def __init__(self, degree=2, loss='squared_hinge', n_components=2, alpha=1,
-                 beta=1, tol=1e-6, fit_lower='explicit', fit_linear=True,
-                 warm_start=False, init_lambdas='ones', max_iter=10000,
-                 verbose=False, random_state=None, mean=True):
+                 beta=1, optimizer='cd_direct_ho', mean=False, tol=1e-6,
+                 fit_lower='explicit', fit_linear=True, warm_start=False,
+                 init_lambdas='ones', max_iter=10000, verbose=False,
+                 random_state=None):
 
         super(FactorizationMachineClassifier, self).__init__(
-            degree, loss, n_components, alpha, beta, tol, fit_lower,
-            fit_linear, warm_start, init_lambdas, max_iter, verbose,
-            random_state, mean)
+            degree, loss, n_components, alpha, beta, optimizer, mean, tol,
+            fit_lower, fit_linear, warm_start, init_lambdas, max_iter, verbose,
+            random_state)

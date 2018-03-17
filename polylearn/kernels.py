@@ -95,8 +95,20 @@ def anova_kernel(X, P, degree=2):
         K += 2 * _D(X, P, degree=3)
         K /= 6
     else:
-        raise NotImplementedError("ANOVA kernel for degree >= 4 not yet "
-                                  "implemented efficiently.")
+        n1 = X.shape[0]
+        n2 = P.shape[0]
+        Ds = [safe_sparse_dot(X, P.T, True)]
+        Ds += [_D(X, P, t) for t in range(2, degree+1)]
+        anovas = [1., Ds[0]]
+        for m in range(2, degree+1):
+            anova = np.zeros((n1, n2))
+            sign = 1.
+            for t in range(1, m+1):
+                anova += sign * anovas[m-t] * Ds[t-1]
+                sign *= -1.
+            anova /= (1.0*m)
+            anovas.append(anova)
+        K = anovas[-1]
     return K
 
 

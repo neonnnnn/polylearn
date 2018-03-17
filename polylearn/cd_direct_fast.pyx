@@ -84,7 +84,7 @@ cdef inline double _update(int* indices,
         update += loss.dloss(y_pred[i], y[i]) * kp
         inv_step_size += kp ** 2
 
-    inv_step_size *= loss.mu
+    inv_step_size *= loss.mu / denominator
     inv_step_size += l1_reg
     update /= denominator
     update += l1_reg * p_js
@@ -164,8 +164,8 @@ def _cd_direct_ho(double[:, :, ::1] P not None,
                   LossFunction loss,
                   unsigned int max_iter,
                   double tol,
-                  int verbose, 
-                  bint mean=True):
+                  int verbose,
+                  bint mean):
 
     cdef Py_ssize_t n_samples = X.get_n_samples()
     cdef unsigned int it, denominator
