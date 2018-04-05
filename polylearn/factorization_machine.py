@@ -237,9 +237,6 @@ class FactorizationMachineRegressor(_BaseFactorizationMachine,
     self.lams_ : array, shape [n_components]
         The predictive weights.
 
-    mean : boolean, defalut: False
-        Whether loss is mean or sum.
-
     References
     ----------
     Polynomial Networks and Factorization Machines:
@@ -340,6 +337,9 @@ class FactorizationMachineClassifier(_BaseFactorizationMachine,
         The seed of the pseudo random number generator to use for
         initializing the parameters.
 
+    mean : boolean, defalut: False
+        Whether loss is mean or sum.
+
     Attributes
     ----------
 
@@ -359,9 +359,6 @@ class FactorizationMachineClassifier(_BaseFactorizationMachine,
 
     self.lams_ : array, shape [n_components]
         The predictive weights.
-
-    mean : boolean, defalut: False
-        Whether loss is mean or sum.
 
     References
     ----------
