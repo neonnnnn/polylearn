@@ -35,20 +35,19 @@ def _lifted_predict(U, dataset):
 class _BasePolynomialNetwork(six.with_metaclass(ABCMeta, _BasePoly)):
     @abstractmethod
     def __init__(self, degree=2, loss='squared', n_components=5, beta=1,
-                 tol=1e-6, fit_lower='augment', warm_start=False,
-                 max_iter=10000, verbose=False, random_state=None,
-                 mean=True):
+                 mean=False, tol=1e-6, fit_lower='augment', warm_start=False,
+                 max_iter=10000, verbose=False, random_state=None):
         self.degree = degree
         self.loss = loss
         self.n_components = n_components
         self.beta = beta
+        self.mean = mean
         self.tol = tol
         self.fit_lower = fit_lower
         self.warm_start = warm_start
         self.max_iter = max_iter
         self.verbose = verbose
         self.random_state = random_state
-        self.mean = mean
 
     def _augment(self, X):
         # for polynomial nets, we add a single dummy column
@@ -152,6 +151,9 @@ class PolynomialNetworkRegressor(_BasePolynomialNetwork, _PolyRegressorMixin):
         The seed of the pseudo random number generator to use for
         initializing the parameters.
 
+    mean : boolean, defalut: False
+        Whether loss is mean or sum.
+
     Attributes
     ----------
 
@@ -171,13 +173,13 @@ class PolynomialNetworkRegressor(_BasePolynomialNetwork, _PolyRegressorMixin):
     In: Proceedings of NIPS 2014.
     """
 
-    def __init__(self, degree=2, n_components=2, beta=1, tol=1e-6,
-                 fit_lower='augment', warm_start=False,
-                 max_iter=10000, verbose=False, random_state=None, mean=True):
+    def __init__(self, degree=2, n_components=2, beta=1, mean=False,
+                 tol=1e-6, fit_lower='augment', warm_start=False,
+                 max_iter=10000, verbose=False, random_state=None):
 
         super(PolynomialNetworkRegressor, self).__init__(
-            degree, 'squared', n_components, beta, tol, fit_lower,
-            warm_start, max_iter, verbose, random_state, mean)
+            degree, 'squared', n_components, beta, tol, mean, fit_lower,
+            warm_start, max_iter, verbose, random_state)
 
 
 class PolynomialNetworkClassifier(_BasePolynomialNetwork,
@@ -232,6 +234,9 @@ class PolynomialNetworkClassifier(_BasePolynomialNetwork,
         The seed of the pseudo random number generator to use for
         initializing the parameters.
 
+    mean : boolean, defalut: False
+        Whether loss is mean or sum.
+
     Attributes
     ----------
 
@@ -252,9 +257,9 @@ class PolynomialNetworkClassifier(_BasePolynomialNetwork,
     """
 
     def __init__(self, degree=2, loss='squared_hinge', n_components=2, beta=1,
-                 tol=1e-6, fit_lower='augment', warm_start=False,
-                 max_iter=10000, verbose=False, random_state=None, mean=True):
+                 mean=False, tol=1e-6, fit_lower='augment', warm_start=False,
+                 max_iter=10000, verbose=False, random_state=None):
 
         super(PolynomialNetworkClassifier, self).__init__(
-            degree, loss, n_components, beta, tol, fit_lower,
-            warm_start, max_iter, verbose, random_state, mean)
+            degree, loss, n_components, beta, tol, mean, fit_lower,
+            warm_start, max_iter, verbose, random_state)
