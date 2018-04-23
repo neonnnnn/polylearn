@@ -20,7 +20,8 @@ def configuration(parent_package='', top_path=None):
     config.add_extension('cd_linear_fast', sources=['cd_linear_fast.pyx'],
                          language='c++',
                          include_dirs=[numpy.get_include()])
-    config.add_extension('cd_lifted_fast', sources=['cd_lifted_fast.cpp'],
+    config.add_extension('cd_lifted_fast', sources=['cd_lifted_fast.pyx'],
+                         language='c++', 
                          include_dirs=[numpy.get_include()])
 
     config.add_subpackage('tests')
