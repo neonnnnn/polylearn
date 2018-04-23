@@ -138,7 +138,7 @@ def _cd_lifted(double[:, :, ::1] U,
     if mean:
         denominator = n_samples
     else:
-        mean = 1
+        denominator = 1
     for it in range(max_iter):
         sum_viol = 0
         for t in range(degree):
@@ -158,7 +158,7 @@ def _cd_lifted(double[:, :, ::1] U,
                         update += xi[i] * data[ii] * loss.dloss(y_pred[i],
                                                                 y[i])
 
-                    inv_step_size *= loss.mu
+                    inv_step_size *= loss.mu / denominator
                     inv_step_size += beta
 
                     update /= denominator

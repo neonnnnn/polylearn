@@ -42,9 +42,9 @@ cpdef double _cd_linear_epoch(double[:] w,
             i = indices[ii]
             update += loss.dloss(y_pred[i], y[i]) * data[ii]
         update /= denominator
-        update = alpha * w[j]
+        update += alpha * w[j]
         # compute second derivative upper bound
-        inv_step_size = loss.mu * col_norm_sq[j] + alpha
+        inv_step_size = loss.mu * col_norm_sq[j] / denominator + alpha
         update /= inv_step_size
 
         w[j] -= update
