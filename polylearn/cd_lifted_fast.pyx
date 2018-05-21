@@ -103,16 +103,19 @@ cdef void _precompute(double[:, :, ::1] U,
             out[i] *= tmp[i]
 
 
-def _cd_lifted(double[:, :, ::1] U,
+def _cd_lifted(self,
+               double[:, :, ::1] U,
                ColumnDataset X,
                double[:] y,
                double[:] y_pred,
                double beta,
                LossFunction loss,
-               int max_iter,
+               unsigned int max_iter,
+               bint mean,
                double tol,
                int verbose,
-               bint mean):
+               callback,
+               unsigned int n_calls):
 
     cdef Py_ssize_t n_samples = X.get_n_samples()
     cdef Py_ssize_t n_features = X.get_n_features()
@@ -122,7 +125,7 @@ def _cd_lifted(double[:, :, ::1] U,
     cdef unsigned int it, denominator
     cdef double sum_viol
     cdef bint converged = False
-
+    cdef bint has_callback = callback is not None
     cdef double inv_step_size
     cdef double update
     cdef double u_old
@@ -139,6 +142,8 @@ def _cd_lifted(double[:, :, ::1] U,
         denominator = n_samples
     else:
         denominator = 1
+
+    it = 0
     for it in range(max_iter):
         sum_viol = 0
         for t in range(degree):
@@ -173,6 +178,10 @@ def _cd_lifted(double[:, :, ::1] U,
                         i = indices[ii]
                         y_pred[i] -= data[ii] * xi[i] * update
 
+        if has_callback and it % has_callback == 0:
+            if callback(self) is not None:
+                break
+                
         if verbose:
             print("Iteration", it + 1, "violation sum", sum_viol)
 

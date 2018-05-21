@@ -143,7 +143,8 @@ cdef inline double _cd_epoch(double[:, :, ::1] P,
     return sum_viol
 
 
-def _cd_direct_arbitrary(double[:, :, ::1] P not None,
+def _cd_direct_arbitrary(self,
+                         double[:, :, ::1] P not None,
                          double[:] w not None,
                          ColumnDataset X,
                          double[:] col_norm_sq not None,
@@ -157,14 +158,19 @@ def _cd_direct_arbitrary(double[:, :, ::1] P not None,
                          bint fit_lower,
                          LossFunction loss,
                          Py_ssize_t max_iter,
+                         bint mean,
                          double tol,
                          int verbose,
-                         bint mean):
+                         callback,
+                         unsigned int n_calls):
 
     cdef Py_ssize_t n_samples, i
     cdef unsigned int it, deg, denominator
     cdef double viol
+
     cdef bint converged = False
+    cdef bint has_callback = callback is not None
+
     n_samples = X.get_n_samples()
 
     # precomputed values
@@ -196,6 +202,10 @@ def _cd_direct_arbitrary(double[:, :, ::1] P not None,
 
         viol += _cd_epoch(P, 0, X, y, y_pred, lams, degree,
                           beta, loss, A, dA, denominator)
+
+        if has_callback and it % n_calls == 0:
+            if callback(self) is not None:
+                break
 
         if verbose:
             print("Iteration {} violation sum {}".format(it + 1, viol))

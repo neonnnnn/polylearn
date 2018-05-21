@@ -34,7 +34,7 @@ class _BaseFactorizationMachine(six.with_metaclass(ABCMeta, _BasePoly)):
                  beta=1, optimizer='cd_direct_ho', mean=False, tol=1e-6,
                  fit_lower='explicit', fit_linear=True, warm_start=False,
                  init_lambdas='ones', max_iter=10000, verbose=False,
-                 random_state=None):
+                 callback=None, n_calls=100, random_state=None):
         self.degree = degree
         self.loss = loss
         self.n_components = n_components
@@ -49,6 +49,8 @@ class _BaseFactorizationMachine(six.with_metaclass(ABCMeta, _BasePoly)):
         self.init_lambdas = init_lambdas
         self.max_iter = max_iter
         self.verbose = verbose
+        self.callback = callback
+        self.n_calls = n_calls
         self.random_state = random_state
 
     def _augment(self, X):
@@ -115,10 +117,10 @@ class _BaseFactorizationMachine(six.with_metaclass(ABCMeta, _BasePoly)):
             optimizer = _cd_direct_arbitrary
 
         converged, self.n_iter_ = optimizer(
-            self.P_, self.w_, dataset, X_col_norms, y, y_pred,
+            self, self.P_, self.w_, dataset, X_col_norms, y, y_pred,
             self.lams_, self.degree, self.alpha, self.beta, self.fit_linear,
             self.fit_lower == 'explicit', loss_obj, self.max_iter,
-            self.tol, self.verbose, self.mean)
+            self.mean, self.tol, self.verbose, self.callback, self.n_calls)
         if not converged:
             warnings.warn("Objective did not converge. Increase max_iter.")
 
@@ -169,6 +171,9 @@ class FactorizationMachineRegressor(_BaseFactorizationMachine,
     beta : float, default: 1
         Regularization amount for higher-order weights.
 
+    mean : boolean, default: False
+        Whether loss is mean or sum.
+
     tol : float, default: 1e-6
         Tolerance for the stopping condition.
 
@@ -210,12 +215,15 @@ class FactorizationMachineRegressor(_BaseFactorizationMachine,
     verbose : boolean, optional, default: False
         Whether to print debugging information.
 
+    callback : callable
+        Callback function.
+
+    n_calls : int
+        Frequency with which `callback` must be called.
+
     random_state : int seed, RandomState instance, or None (default)
         The seed of the pseudo random number generator to use for
         initializing the parameters.
-
-    mean : boolean, defalut: False
-        Whether loss is mean or sum.
 
     Attributes
     ----------
@@ -253,12 +261,12 @@ class FactorizationMachineRegressor(_BaseFactorizationMachine,
                  optimizer='cd_direct_ho', mean=False, tol=1e-6,
                  fit_lower='explicit', fit_linear=True, warm_start=False,
                  init_lambdas='ones', max_iter=10000, verbose=False,
-                 random_state=None):
+                 callback=None, n_calls=100, random_state=None):
 
         super(FactorizationMachineRegressor, self).__init__(
             degree, 'squared', n_components, alpha, beta, optimizer, mean,
             tol, fit_lower, fit_linear, warm_start, init_lambdas, max_iter,
-            verbose, random_state)
+            verbose, callback, n_calls, random_state)
 
 
 class FactorizationMachineClassifier(_BaseFactorizationMachine,
@@ -291,6 +299,9 @@ class FactorizationMachineClassifier(_BaseFactorizationMachine,
 
     beta : float, default: 1
         Regularization amount for higher-order weights.
+
+    mean : boolean, default: False
+        Whether loss is mean or sum.
 
     tol : float, default: 1e-6
         Tolerance for the stopping condition.
@@ -333,12 +344,15 @@ class FactorizationMachineClassifier(_BaseFactorizationMachine,
     verbose : boolean, optional, default: False
         Whether to print debugging information.
 
+    callback : callable
+        Callback function.
+
+    n_calls : int
+        Frequency with which `callback` must be called.
+
     random_state : int seed, RandomState instance, or None (default)
         The seed of the pseudo random number generator to use for
         initializing the parameters.
-
-    mean : boolean, defalut: False
-        Whether loss is mean or sum.
 
     Attributes
     ----------
@@ -377,9 +391,9 @@ class FactorizationMachineClassifier(_BaseFactorizationMachine,
                  beta=1, optimizer='cd_direct_ho', mean=False, tol=1e-6,
                  fit_lower='explicit', fit_linear=True, warm_start=False,
                  init_lambdas='ones', max_iter=10000, verbose=False,
-                 random_state=None):
+                 callback=None, n_calls=100, random_state=None):
 
         super(FactorizationMachineClassifier, self).__init__(
             degree, loss, n_components, alpha, beta, optimizer, mean, tol,
             fit_lower, fit_linear, warm_start, init_lambdas, max_iter, verbose,
-            random_state)
+            callback, n_calls, random_state)

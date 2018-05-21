@@ -149,7 +149,8 @@ cdef inline double _cd_direct_epoch(double[:, :, ::1] P,
     return sum_viol
 
 
-def _cd_direct_ho(double[:, :, ::1] P not None,
+def _cd_direct_ho(self,
+                  double[:, :, ::1] P not None,
                   double[:] w not None,
                   ColumnDataset X,
                   double[:] col_norm_sq not None,
@@ -163,15 +164,18 @@ def _cd_direct_ho(double[:, :, ::1] P not None,
                   bint fit_lower,
                   LossFunction loss,
                   unsigned int max_iter,
+                  bint mean,
                   double tol,
                   int verbose,
-                  bint mean):
+                  callback,
+                  unsigned int n_calls):
 
     cdef Py_ssize_t n_samples = X.get_n_samples()
     cdef unsigned int it, denominator
 
     cdef double viol
     cdef bint converged = False
+    cdef bint has_callback = callback is not None
 
     # precomputed values
     cdef double[:, ::1] D = array((degree - 1, n_samples), sizeof(double), 'd')
@@ -182,11 +186,13 @@ def _cd_direct_ho(double[:, :, ::1] P not None,
     else:
         denominator = 1
 
+    it = 0
     for it in range(max_iter):
         viol = 0
 
         if fit_linear:
-            viol += _cd_linear_epoch(w, X, y, y_pred, col_norm_sq, alpha, loss, denominator)
+            viol += _cd_linear_epoch(w, X, y, y_pred, col_norm_sq, alpha, loss,
+                                     denominator)
 
         if fit_lower and degree == 3:  # fit degree 2. Will be looped later.
             viol += _cd_direct_epoch(P, 1, X, y, y_pred, lams, 2, beta, loss,
@@ -194,6 +200,10 @@ def _cd_direct_ho(double[:, :, ::1] P not None,
 
         viol += _cd_direct_epoch(P, 0, X, y, y_pred, lams, degree, beta, loss,
                                  D, cache_kp, denominator)
+
+        if has_callback and it % n_calls == 0:
+            if callback(self) is not None:
+                break
 
         if verbose:
             print("Iteration", it + 1, "violation sum", viol)
