@@ -11,6 +11,7 @@ from scipy import sparse as sp
 
 from polylearn.kernels import homogeneous_kernel, anova_kernel, safe_power
 from polylearn.kernels import _poly_predict
+from polylearn.kernels_fast import all_subsets_kernel
 
 
 def _product(x):
@@ -29,6 +30,12 @@ def dumb_homogeneous(x, p, degree=2):
 def dumb_anova(x, p, degree=2):
     return sum(_product(x[k] * p[k] for k in ix)
                for ix in combinations(range(len(x)), degree))
+
+
+def dumb_all_subsets(x, p):
+    return 1. + sum(_product(x[k] * p[k] for k in ix)
+                    for degree in range(1, len(x)+1)
+                    for ix in combinations(range(len(x)), degree))
 
 
 n_samples = 5
@@ -60,6 +67,16 @@ def test_anova():
         got = anova_kernel(X, P, degree=m)
         assert_array_almost_equal(got, expected, err_msg=(
             "ANOVA kernel incorrect for degree {}".format(m)))
+
+
+def test_all_subsets():
+    expected = np.zeros((n_samples, n_bases))
+    for i in range(n_samples):
+        for j in range(n_bases):
+            expected[i, j] = dumb_all_subsets(X[i], P[j])
+    got = all_subsets_kernel(X, P)
+    assert_array_almost_equal(got, expected,
+                              err_msg="All-subsets kernel incorrect")
 
 
 def test_anova_ignore_diag_equivalence():
@@ -105,6 +122,14 @@ def test_anova_sparse():
             "ANOVA kernel sparse != dense for degree {}".format(m)))
 
 
+def test_all_subsets_sparse():
+    X_sp = sp.csr_matrix(X)
+    dense = all_subsets_kernel(X, P)
+    sparse = all_subsets_kernel(X_sp, P)
+    assert_array_almost_equal(dense, sparse,
+                              err_msg="All-subsets sparse != dense")
+
+
 def test_predict():
     # predict with homogeneous kernel
     y_pred_poly = _poly_predict(X, P, lams, kernel='poly', degree=3)
@@ -120,9 +145,11 @@ def test_predict():
     assert_array_almost_equal(y_pred_poly, y_pred,
                               err_msg="ANOVA prediction incorrect.")
 
-
-def test_unsupported_degree():
-    assert_raises(NotImplementedError, anova_kernel, X, P, degree=4)
+    y_pred_poly = _poly_predict(X, P, lams, kernel='all-subsets')
+    K = all_subsets_kernel(X, P)
+    y_pred = np.dot(K, lams)
+    assert_array_almost_equal(y_pred_poly, y_pred,
+                              err_msg="All-subsets prediction incorrect.")
 
 
 def test_unsupported_kernel():

@@ -18,16 +18,20 @@ X_col_norm_sq = (X ** 2).sum(axis=0)
 n_iter = 100
 
 
-def _fit_linear(X, y, alpha, n_iter, loss, callback=None):
+def _fit_linear(X, y, alpha, n_iter, loss, callback=None, mean=False):
     n_samples, n_features = X.shape
     X_col_norm_sq = (X ** 2).sum(axis=0)
     X_ds = get_dataset(X, order='fortran')
     w_init = np.zeros(n_features)
     y_pred = np.zeros(n_samples)
+    if mean:
+        denominator = n_samples
+    else:
+        denominator = 1
 
     for _ in range(n_iter):
         viol = _cd_linear_epoch(w_init, X_ds, y, y_pred, X_col_norm_sq,
-                                alpha, loss)
+                                alpha, loss, denominator)
         if callback is not None:
             callback(w_init, viol)
     return w_init
@@ -76,7 +80,7 @@ def test_cd_linear_clf():
         yield check_cd_linear_clf, loss
 
 
-def test_cd_linear_offset():
+def test_cd_linear_offset(mean=False):
     loss = Squared()
     alpha = 1e-3
     w_a = np.zeros_like(w_true)
@@ -86,14 +90,17 @@ def test_cd_linear_offset():
     y_pred_a = np.zeros(n_features)
     y_pred_b = np.zeros(n_features)
     y_offset = np.arange(n_features).astype(np.double)
-
+    if mean:
+        denominator = 50
+    else:
+        denominator = 1
     # one epoch with offset
     _cd_linear_epoch(w_a, X_ds, y, y_pred_a + y_offset, X_col_norm_sq, alpha,
-                     loss)
+                     loss, denominator)
 
     # one epoch with shifted target
     _cd_linear_epoch(w_b, X_ds, y - y_offset, y_pred_b, X_col_norm_sq, alpha,
-                     loss)
+                     loss, denominator)
 
     assert_array_almost_equal(w_a, w_b)
 
