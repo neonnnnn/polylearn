@@ -36,7 +36,7 @@ cpdef double _cd_linear_epoch(double[:] w,
 
     for j in range(n_features):
         X.get_column_ptr(j, &indices, &data, &n_nz)
-        update = 0,
+        update = 0
         # compute gradient with respect to w_j
         for ii in range(n_nz):
             i = indices[ii]
