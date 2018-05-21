@@ -6,6 +6,7 @@ from sklearn.utils.extmath import safe_sparse_dot
 from scipy.sparse import issparse
 
 import numpy as np
+from .kernels_fast import all_subsets_kernel
 
 
 def safe_power(X, degree=2):
@@ -117,8 +118,10 @@ def _poly_predict(X, P, lams, kernel, degree=2):
         K = anova_kernel(X, P, degree)
     elif kernel == "poly":
         K = homogeneous_kernel(X, P, degree)
+    elif kernel == "all-subsets":
+        K = all_subsets_kernel(X, P)
     else:
         raise ValueError(("Unsuppported kernel: {}. Use one "
-                          "of {{'anova'|'poly'}}").format(kernel))
+                          "of {{'anova'|'poly'|'all-subsets'}}").format(kernel))
 
     return np.dot(K, lams)
