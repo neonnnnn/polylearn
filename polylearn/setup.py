@@ -23,7 +23,12 @@ def configuration(parent_package='', top_path=None):
     config.add_extension('cd_lifted_fast', sources=['cd_lifted_fast.pyx'],
                          language='c++', 
                          include_dirs=[numpy.get_include()])
-
+    config.add_extension('cd_direct_fast_as', sources=['cd_direct_fast_as.pyx'],
+                         language='c++',
+                         include_dirs=[numpy.get_include()])
+    config.add_extension('kernels_fast', sources=['kernels_fast.pyx'],
+                         language='c++',
+                         include_dirs=[numpy.get_include()])
     config.add_subpackage('tests')
 
     maybe_cythonize_extensions(top_path, config)
