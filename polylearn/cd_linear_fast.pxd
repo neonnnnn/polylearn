@@ -6,5 +6,4 @@ cpdef double _cd_linear_epoch(double[:] w, ColumnDataset X,
                               double[:] y_pred,
                               double[:] col_norm_sq,
                               double alpha,
-                              LossFunction loss,
-                              unsigned int denominator)
+                              LossFunction loss)

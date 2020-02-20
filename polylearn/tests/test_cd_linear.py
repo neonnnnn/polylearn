@@ -24,14 +24,10 @@ def _fit_linear(X, y, alpha, n_iter, loss, callback=None, mean=False):
     X_ds = get_dataset(X, order='fortran')
     w_init = np.zeros(n_features)
     y_pred = np.zeros(n_samples)
-    if mean:
-        denominator = n_samples
-    else:
-        denominator = 1
-
+    alpha *= n_samples
     for _ in range(n_iter):
         viol = _cd_linear_epoch(w_init, X_ds, y, y_pred, X_col_norm_sq,
-                                alpha, loss, denominator)
+                                alpha, loss)
         if callback is not None:
             callback(w_init, viol)
     return w_init
