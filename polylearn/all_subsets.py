@@ -1,6 +1,6 @@
 # encoding: utf-8
 
-# Author: Vlad Niculae <vlad@vene.ro>
+# Author: Kyohei Atarashi
 # License: Simplified BSD
 
 import warnings
@@ -29,8 +29,9 @@ class _BaseAllSubsets(six.with_metaclass(ABCMeta, _BasePoly)):
     @abstractmethod
     def __init__(self, loss='squared', n_components=2, beta=1,
                  mean=False, tol=1e-6, warm_start=False,
-                 init_lambdas='ones', max_iter=10000, verbose=False,
-                 callback=None, n_calls=100, random_state=None):
+                 init_lambdas='ones', max_iter=10000, shuffle=False,
+                 verbose=False, callback=None, n_calls=100,
+                 random_state=None):
         self.loss = loss
         self.n_components = n_components
         self.beta = beta
@@ -39,6 +40,7 @@ class _BaseAllSubsets(six.with_metaclass(ABCMeta, _BasePoly)):
         self.warm_start = warm_start
         self.init_lambdas = init_lambdas
         self.max_iter = max_iter
+        self.shuffle = shuffle
         self.verbose = verbose
         self.callback = callback
         self.n_calls = n_calls
@@ -67,6 +69,10 @@ class _BaseAllSubsets(six.with_metaclass(ABCMeta, _BasePoly)):
         dataset = get_dataset(X, order="fortran")
         rng = check_random_state(self.random_state)
         loss_obj = self._get_loss(self.loss)
+        if self.mean:
+            beta = self.beta * X.shape[0]
+        else:
+            beta = self.beta
 
         if not (self.warm_start and hasattr(self, 'P_')):
             self.P_ = 0.01 * rng.randn(self.n_components, n_features)
@@ -82,11 +88,11 @@ class _BaseAllSubsets(six.with_metaclass(ABCMeta, _BasePoly)):
                                  "+/- 1 (init_lambdas='random_signs').")
 
         y_pred = self._get_output(X)
-
+    
         converged, self.n_iter_ = _cd_direct_as(
-            self.P_, dataset, y, y_pred, self.lams_, self.beta,
-            loss_obj, self.max_iter, self.mean, self.tol, self.verbose,
-            self.callback, self.n_calls)
+            self, self.P_, dataset, y, y_pred, self.lams_, beta,
+            loss_obj, self.max_iter, self.tol, self.verbose, self.callback,
+            self.n_calls, self.shuffle, rng)
         if not converged:
             warnings.warn("Objective did not converge. Increase max_iter.")
 
@@ -137,6 +143,9 @@ class AllSubsetsRegressor(_BaseAllSubsets, _PolyRegressorMixin):
 
     max_iter : int, optional, default: 10000
         Maximum number of passes over the dataset to perform.
+    
+    shuffle : bool, optional, default: False
+        Whether cyclic or random order optimization.
 
     verbose : boolean, optional, default: False
         Whether to print debugging information.
@@ -169,11 +178,13 @@ class AllSubsetsRegressor(_BaseAllSubsets, _PolyRegressorMixin):
     """
     def __init__(self, n_components=2, beta=1, mean=False, tol=1e-6,
                  warm_start=False, init_lambdas='ones', max_iter=10000,
-                 verbose=False, callback=None, n_calls=100, random_state=None):
+                 shuffle=False, verbose=False, callback=None, n_calls=100,
+                 random_state=None):
 
         super(AllSubsetsRegressor, self).__init__(
             'squared', n_components, beta, mean, tol, warm_start,
-            init_lambdas, max_iter, verbose, callback, n_calls, random_state)
+            init_lambdas, max_iter, shuffle, verbose, callback, n_calls,
+            random_state)
 
 
 class AllSubsetsClassifier(_BaseAllSubsets, _PolyClassifierMixin):
@@ -219,6 +230,9 @@ class AllSubsetsClassifier(_BaseAllSubsets, _PolyClassifierMixin):
 
     max_iter : int, optional, default: 10000
         Maximum number of passes over the dataset to perform.
+    
+    shuffle : bool, optional, default: False
+        Whether cyclic or random order optimization.
 
     verbose : boolean, optional, default: False
         Whether to print debugging information.
@@ -252,9 +266,9 @@ class AllSubsetsClassifier(_BaseAllSubsets, _PolyClassifierMixin):
 
     def __init__(self, loss='squared_hinge', n_components=2, beta=1, mean=False,
                  tol=1e-6, warm_start=False, init_lambdas='ones',
-                 max_iter=10000, verbose=False, callback=None, n_calls=100,
-                 random_state=None):
+                 max_iter=10000, shuffle=False, verbose=False, callback=None,
+                 n_calls=100, random_state=None):
 
         super(AllSubsetsClassifier, self).__init__(
             loss, n_components, beta, mean, tol, warm_start, init_lambdas,
-            max_iter, verbose, callback, n_calls, random_state)
+            max_iter, shuffle, verbose, callback, n_calls, random_state)

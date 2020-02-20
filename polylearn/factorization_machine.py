@@ -31,10 +31,11 @@ class _BaseFactorizationMachine(six.with_metaclass(ABCMeta, _BasePoly)):
 
     @abstractmethod
     def __init__(self, degree=2, loss='squared', n_components=2, alpha=1,
-                 beta=1, optimizer='cd_direct_ho', mean=False, tol=1e-6,
-                 fit_lower='explicit', fit_linear=True, warm_start=False,
-                 init_lambdas='ones', max_iter=10000, verbose=False,
-                 callback=None, n_calls=100, random_state=None):
+                 beta=1, optimizer='cd_direct_ho', mean=False,
+                 tol=1e-6, fit_lower='explicit', fit_linear=True,
+                 warm_start=False, init_lambdas='ones', max_iter=10000,
+                 shuffle=False, verbose=False, callback=None, n_calls=100,
+                 random_state=None):
         self.degree = degree
         self.loss = loss
         self.n_components = n_components
@@ -48,6 +49,7 @@ class _BaseFactorizationMachine(six.with_metaclass(ABCMeta, _BasePoly)):
         self.warm_start = warm_start
         self.init_lambdas = init_lambdas
         self.max_iter = max_iter
+        self.shuffle = shuffle
         self.verbose = verbose
         self.callback = callback
         self.n_calls = n_calls
@@ -87,6 +89,12 @@ class _BaseFactorizationMachine(six.with_metaclass(ABCMeta, _BasePoly)):
         dataset = get_dataset(X, order="fortran")
         rng = check_random_state(self.random_state)
         loss_obj = self._get_loss(self.loss)
+        if self.mean:
+            alpha = X.shape[0] * self.alpha
+            beta = X.shape[0] * self.beta
+        else:
+            alpha = self.alpha
+            beta = self.beta
 
         if not (self.warm_start and hasattr(self, 'w_')):
             self.w_ = np.zeros(n_features, dtype=np.double)
@@ -118,9 +126,10 @@ class _BaseFactorizationMachine(six.with_metaclass(ABCMeta, _BasePoly)):
 
         converged, self.n_iter_ = optimizer(
             self, self.P_, self.w_, dataset, X_col_norms, y, y_pred,
-            self.lams_, self.degree, self.alpha, self.beta, self.fit_linear,
+            self.lams_, self.degree, alpha, beta, self.fit_linear,
             self.fit_lower == 'explicit', loss_obj, self.max_iter,
-            self.mean, self.tol, self.verbose, self.callback, self.n_calls)
+            self.tol, self.verbose, self.callback,
+            self.n_calls, self.shuffle, rng)
         if not converged:
             warnings.warn("Objective did not converge. Increase max_iter.")
 
@@ -211,7 +220,10 @@ class FactorizationMachineRegressor(_BaseFactorizationMachine,
 
     max_iter : int, optional, default: 10000
         Maximum number of passes over the dataset to perform.
-
+    
+    shuffle : bool, optional, default: False
+        Whether cyclic or random order optimization.
+    
     verbose : boolean, optional, default: False
         Whether to print debugging information.
 
@@ -260,13 +272,13 @@ class FactorizationMachineRegressor(_BaseFactorizationMachine,
     def __init__(self, degree=2, n_components=2, alpha=1, beta=1,
                  optimizer='cd_direct_ho', mean=False, tol=1e-6,
                  fit_lower='explicit', fit_linear=True, warm_start=False,
-                 init_lambdas='ones', max_iter=10000, verbose=False,
-                 callback=None, n_calls=100, random_state=None):
+                 init_lambdas='ones', max_iter=10000, shuffle=False, 
+                 verbose=False, callback=None, n_calls=100, random_state=None):
 
         super(FactorizationMachineRegressor, self).__init__(
-            degree, 'squared', n_components, alpha, beta, optimizer, mean,
-            tol, fit_lower, fit_linear, warm_start, init_lambdas, max_iter,
-            verbose, callback, n_calls, random_state)
+            degree, 'squared', n_components, alpha, beta, optimizer,
+            mean, tol, fit_lower, fit_linear, warm_start, init_lambdas,
+            max_iter, shuffle, verbose, callback, n_calls, random_state)
 
 
 class FactorizationMachineClassifier(_BaseFactorizationMachine,
@@ -340,7 +352,10 @@ class FactorizationMachineClassifier(_BaseFactorizationMachine,
 
     max_iter : int, optional, default: 10000
         Maximum number of passes over the dataset to perform.
-
+    
+    shuffle : bool, optional, default: False
+        Whether cyclic or random order optimization.
+    
     verbose : boolean, optional, default: False
         Whether to print debugging information.
 
@@ -388,12 +403,13 @@ class FactorizationMachineClassifier(_BaseFactorizationMachine,
     """
 
     def __init__(self, degree=2, loss='squared_hinge', n_components=2, alpha=1,
-                 beta=1, optimizer='cd_direct_ho', mean=False, tol=1e-6,
-                 fit_lower='explicit', fit_linear=True, warm_start=False,
-                 init_lambdas='ones', max_iter=10000, verbose=False,
-                 callback=None, n_calls=100, random_state=None):
+                 beta=1, optimizer='cd_direct_ho', mean=False,
+                 tol=1e-6, fit_lower='explicit', fit_linear=True,
+                 warm_start=False, init_lambdas='ones', max_iter=10000,
+                 shuffle=False, verbose=False, callback=None, n_calls=100,
+                 random_state=None):
 
         super(FactorizationMachineClassifier, self).__init__(
-            degree, loss, n_components, alpha, beta, optimizer, mean, tol,
-            fit_lower, fit_linear, warm_start, init_lambdas, max_iter, verbose,
-            callback, n_calls, random_state)
+            degree, loss, n_components, alpha, beta, optimizer, mean,
+            tol, fit_lower, fit_linear, warm_start, init_lambdas, max_iter,
+            shuffle, verbose, callback, n_calls, random_state)

@@ -4,13 +4,15 @@
 # cython: boundscheck=False
 # cython: wraparound=False
 #
-# Author: Vlad Niculae
+# Author: Kyohei Atarashi
 # License: BSD
 
 from libc.math cimport fabs
 from cython.view cimport array
 from lightning.impl.dataset_fast cimport ColumnDataset
 from .loss_fast cimport LossFunction
+import numpy as np
+cimport numpy as np
 
 
 cdef void _precompute(ColumnDataset X,
@@ -50,8 +52,7 @@ cdef inline double _update(int* indices,
                            double lam,
                            double beta,
                            double[:] D,
-                           double[:] cache_kp,
-                           unsigned int denominator):
+                           double[:] cache_kp):
 
     cdef double l1_reg = 2 * beta * fabs(lam)
 
@@ -71,9 +72,8 @@ cdef inline double _update(int* indices,
         update += loss.dloss(y_pred[i], y[i]) * kp
         inv_step_size += kp ** 2
 
-    inv_step_size *= loss.mu / denominator
+    inv_step_size *= loss.mu
     inv_step_size += l1_reg
-    update /= denominator
     update += l1_reg * p_js
     update /= inv_step_size
 
@@ -89,9 +89,10 @@ cdef inline double _cd_direct_epoch(double[:, ::1] P,
                                     LossFunction loss,
                                     double[:] D,
                                     double[:] cache_kp,
-                                    unsigned int denominator):
-
-    cdef Py_ssize_t s, j
+                                    int[:] indices_features,
+                                    bint shuffle,
+                                    rng):
+    cdef Py_ssize_t s, j, jj
     cdef double p_old, update, offset
     cdef double sum_viol = 0
     cdef Py_ssize_t n_components = P.shape[0]
@@ -106,15 +107,16 @@ cdef inline double _cd_direct_epoch(double[:, ::1] P,
 
         # initialize the cached ds for this s
         _precompute(X, P, D, s)
-
-        for j in range(n_features):
-
+        if shuffle:
+            rng.shuffle(indices_features)
+        for jj in range(n_features):
+            j = indices_features[jj]
             X.get_column_ptr(j, &indices, &data, &n_nz)
 
             # compute coordinate update
             p_old = P[s, j]
             update = _update(indices, data, n_nz, p_old, y, y_pred,
-                             loss, lams[s], beta, D, cache_kp, denominator)
+                             loss, lams[s], beta, D, cache_kp)
             P[s, j] -= update
             sum_viol += fabs(update)
 
@@ -135,14 +137,16 @@ def _cd_direct_as(self,
                   double beta,
                   LossFunction loss,
                   unsigned int max_iter,
-                  bint mean,
                   double tol,
                   int verbose,
                   callback,
-                  unsigned int n_calls):
+                  unsigned int n_calls,
+                  bint shuffle,
+                  rng):
 
     cdef Py_ssize_t n_samples = X.get_n_samples()
-    cdef unsigned int it, denominator
+    cdef Py_ssize_t n_features = X.get_n_features()
+    cdef unsigned int it
 
     cdef double viol
     cdef bint converged = False
@@ -151,18 +155,17 @@ def _cd_direct_as(self,
     # precomputed values
     cdef double[:] D = array((n_samples, ), sizeof(double), 'd')
     cdef double[:] cache_kp = array((n_samples,), sizeof(double), 'd')
-
-    if mean:
-        denominator = n_samples
-    else:
-        denominator = 1
+    
+    # for random sampling of feature index
+    cdef np.ndarray[int, ndim=1] indices_features
+    indices_features = np.arange(n_features, dtype=np.int32)
 
     it = 0
     for it in range(max_iter):
         viol = 0
 
-        viol += _cd_direct_epoch(P, X, y, y_pred, lams, beta, loss,
-                                 D, cache_kp, denominator)
+        viol += _cd_direct_epoch(P, X, y, y_pred, lams, beta, loss, D,
+                                 cache_kp, indices_features, shuffle, rng)
 
         if has_callback and it % n_calls == 0:
             if callback(self) is not None:

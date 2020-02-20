@@ -36,8 +36,8 @@ class _BasePolynomialNetwork(six.with_metaclass(ABCMeta, _BasePoly)):
     @abstractmethod
     def __init__(self, degree=2, loss='squared', n_components=5, beta=1,
                  mean=False, tol=1e-6, fit_lower='augment', warm_start=False,
-                 max_iter=10000, verbose=False, callback=None, n_calls=100,
-                 random_state=None):
+                 max_iter=10000, shuffle=False, verbose=False, callback=None,
+                 n_calls=100, random_state=None):
         self.degree = degree
         self.loss = loss
         self.n_components = n_components
@@ -47,6 +47,7 @@ class _BasePolynomialNetwork(six.with_metaclass(ABCMeta, _BasePoly)):
         self.fit_lower = fit_lower
         self.warm_start = warm_start
         self.max_iter = max_iter
+        self.shuffle = shuffle
         self.verbose = verbose
         self.callback = callback
         self.n_calls = n_calls
@@ -86,6 +87,10 @@ class _BasePolynomialNetwork(six.with_metaclass(ABCMeta, _BasePoly)):
         dataset = get_dataset(X, order="fortran")
         rng = check_random_state(self.random_state)
         loss_obj = self._get_loss(self.loss)
+        if self.mean:
+            beta = X.shape[0] * self.beta
+        else:
+            beta = self.beta
 
         if not (self.warm_start and hasattr(self, 'U_')):
             self.U_ = 0.01 * rng.randn(self.degree, self.n_components,
@@ -94,9 +99,9 @@ class _BasePolynomialNetwork(six.with_metaclass(ABCMeta, _BasePoly)):
         y_pred = _lifted_predict(self.U_, dataset)
 
         converged, self.n_iter_ = _cd_lifted(
-            self, self.U_, dataset, y, y_pred, self.beta, loss_obj,
-            self.max_iter, self.mean, self.tol, self.verbose, self.callback,
-            self.n_calls)
+            self, self.U_, dataset, y, y_pred, beta, loss_obj,
+            self.max_iter, self.tol, self.verbose,
+            self.callback, self.n_calls, self.shuffle, rng)
 
         if not converged:
             warnings.warn("Objective did not converge. Increase max_iter.")
@@ -150,7 +155,10 @@ class PolynomialNetworkRegressor(_BasePolynomialNetwork, _PolyRegressorMixin):
 
     max_iter : int, optional, default: 10000
         Maximum number of passes over the dataset to perform.
-
+    
+    shuffle : bool, optional, default: False
+        Whether cyclic or random order optimization.
+ 
     verbose : boolean, optional, default: False
         Whether to print debugging information.
 
@@ -185,12 +193,13 @@ class PolynomialNetworkRegressor(_BasePolynomialNetwork, _PolyRegressorMixin):
 
     def __init__(self, degree=2, n_components=2, beta=1, mean=False,
                  tol=1e-6, fit_lower='augment', warm_start=False,
-                 max_iter=10000, verbose=False, callback=None, n_calls=100,
-                 random_state=None):
+                 max_iter=10000, shuffle=False, verbose=False, callback=None,
+                 n_calls=100, random_state=None):
 
         super(PolynomialNetworkRegressor, self).__init__(
             degree, 'squared', n_components, beta, mean, tol, fit_lower,
-            warm_start, max_iter, verbose, callback, n_calls, random_state)
+            warm_start, max_iter, shuffle, verbose, callback, n_calls,
+            random_state)
 
 
 class PolynomialNetworkClassifier(_BasePolynomialNetwork,
@@ -240,7 +249,10 @@ class PolynomialNetworkClassifier(_BasePolynomialNetwork,
 
     max_iter : int, optional, default: 10000
         Maximum number of passes over the dataset to perform.
-
+     
+    shuffle : bool, optional, default: False
+        Whether cyclic or random order optimization.
+ 
     verbose : boolean, optional, default: False
         Whether to print debugging information.
 
@@ -275,9 +287,10 @@ class PolynomialNetworkClassifier(_BasePolynomialNetwork,
 
     def __init__(self, degree=2, loss='squared_hinge', n_components=2, beta=1,
                  mean=False, tol=1e-6, fit_lower='augment', warm_start=False,
-                 max_iter=10000, verbose=False, callback=None, n_calls=100,
-                 random_state=None):
+                 max_iter=10000, shuffle=False, verbose=False, callback=None,
+                 n_calls=100, random_state=None):
 
         super(PolynomialNetworkClassifier, self).__init__(
             degree, loss, n_components, beta, mean, tol, fit_lower,
-            warm_start, max_iter, verbose, callback, n_calls, random_state)
+            warm_start, max_iter, shuffle, verbose, callback, n_calls,
+            random_state)

@@ -13,6 +13,8 @@ from cython.view cimport array
 from lightning.impl.dataset_fast cimport ColumnDataset
 
 from .loss_fast cimport LossFunction
+import numpy as np
+cimport numpy as np
 
 
 def _fast_lifted_predict(double[:, :, ::1] U,
@@ -111,18 +113,19 @@ def _cd_lifted(self,
                double beta,
                LossFunction loss,
                unsigned int max_iter,
-               bint mean,
                double tol,
                int verbose,
                callback,
-               unsigned int n_calls):
+               unsigned int n_calls,
+               bint shuffle,
+               rng):
 
     cdef Py_ssize_t n_samples = X.get_n_samples()
     cdef Py_ssize_t n_features = X.get_n_features()
     cdef Py_ssize_t degree = U.shape[0]
     cdef Py_ssize_t n_components = U.shape[1]
-    cdef Py_ssize_t t, s, j
-    cdef unsigned int it, denominator
+    cdef Py_ssize_t t, s, j, jj
+    cdef unsigned int it
     cdef double sum_viol
     cdef bint converged = False
     cdef bint has_callback = callback is not None
@@ -138,10 +141,9 @@ def _cd_lifted(self,
     cdef int* indices
     cdef int n_nz
 
-    if mean:
-        denominator = n_samples
-    else:
-        denominator = 1
+    # for random sampling of feature index
+    cdef np.ndarray[int, ndim=1] indices_features
+    indices_features = np.arange(n_features, dtype=np.int32)
 
     it = 0
     for it in range(max_iter):
@@ -149,7 +151,10 @@ def _cd_lifted(self,
         for t in range(degree):
             for s in range(n_components):
                 _precompute(U, X, s, t, xi, tmp)
-                for j in range(n_features):
+                if shuffle:
+                    rng.shuffle(indices_features)
+                for jj in range(n_features):
+                    j = indices_features[jj]
 
                     u_old = U[t, s, j]
                     X.get_column_ptr(j, &indices, &data, &n_nz)
@@ -163,10 +168,9 @@ def _cd_lifted(self,
                         update += xi[i] * data[ii] * loss.dloss(y_pred[i],
                                                                 y[i])
 
-                    inv_step_size *= loss.mu / denominator
+                    inv_step_size *= loss.mu
                     inv_step_size += beta
 
-                    update /= denominator
                     update += beta * u_old
                     update /= inv_step_size
 

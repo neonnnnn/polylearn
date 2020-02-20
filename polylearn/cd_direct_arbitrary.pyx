@@ -1,14 +1,19 @@
 # encoding: utf-8
+# cython: language_level=3
 # cython: cdivision=True
 # cython: boundscheck=False
 # cython: wraparound=False
 #
+# Author: Kyohei Atarashi
+# License: BSD 
 
 from cython.view cimport array
 from lightning.impl.dataset_fast cimport ColumnDataset
 from libc.math cimport fabs
 from .cd_linear_fast cimport _cd_linear_epoch
 from .loss_fast cimport LossFunction
+import numpy as np
+cimport numpy as np
 
 
 cdef inline void _grad_anova(double[:] dA,
@@ -66,8 +71,7 @@ cdef inline double _update(int* indices,
                            unsigned int degree,
                            double beta,
                            double[:, ::1] A,
-                           double[:] dA,
-                           unsigned int denominator):
+                           double[:] dA):
     cdef double l1_reg = 2 * beta * fabs(lam)
     cdef Py_ssize_t i, ii
     cdef double inv_step_size = 0
@@ -79,11 +83,10 @@ cdef inline double _update(int* indices,
         update += loss.dloss(y_pred[i], y[i]) * dA[degree-1]
         inv_step_size += dA[degree-1] ** 2
 
-    inv_step_size *= loss.mu * (lam ** 2) / denominator
+    inv_step_size *= loss.mu * (lam ** 2)
     inv_step_size += l1_reg
 
     update *= lam
-    update /= denominator
     update += l1_reg * p_js
     update /= inv_step_size
 
@@ -101,8 +104,10 @@ cdef inline double _cd_epoch(double[:, :, ::1] P,
                              LossFunction loss,
                              double[:, ::1] A,
                              double[:] dA,
-                             unsigned int denominator):
-    cdef Py_ssize_t s, j, ii, i
+                             int[:] indices_features,
+                             bint shuffle,
+                             rng):
+    cdef Py_ssize_t s, j, jj, ii, i
     cdef double p_old, update, offset
     cdef double sum_viol = 0
     cdef Py_ssize_t n_components = P.shape[1]
@@ -119,13 +124,15 @@ cdef inline double _cd_epoch(double[:, :, ::1] P,
     for s in range(n_components):
         # initialize the cached ds for this s
         _precompute_A_all_degree(X, P, order, A, s, degree)
-
-        for j in range(n_features):
+        if shuffle:
+            rng.shuffle(indices_features)
+        for jj in range(n_features):
+            j = indices_features[jj]
             X.get_column_ptr(j, &indices, &data, &n_nz)
             # Compute coordinate update
             p_old = P[order, s, j]
             update = _update(indices, data, n_nz, p_old, y, y_pred, loss,
-                             lams[s], degree, beta, A, dA, denominator)
+                             lams[s], degree, beta, A, dA)
             sum_viol += fabs(update)
             P[order, s, j] -= update
 
@@ -158,31 +165,30 @@ def _cd_direct_arbitrary(self,
                          bint fit_lower,
                          LossFunction loss,
                          Py_ssize_t max_iter,
-                         bint mean,
                          double tol,
                          int verbose,
                          callback,
-                         unsigned int n_calls):
+                         unsigned int n_calls,
+                         bint shuffle,
+                         rng):
 
-    cdef Py_ssize_t n_samples, i
-    cdef unsigned int it, deg, denominator
+    cdef Py_ssize_t n_samples, n_features, i
+    cdef unsigned int it, deg
     cdef double viol
 
     cdef bint converged = False
     cdef bint has_callback = callback is not None
 
     n_samples = X.get_n_samples()
+    n_features = X.get_n_features()
 
     # precomputed values
     # A[m, i] = A^{m}(p, X_i)
     cdef double[:, ::1] A = array((degree+1, n_samples), sizeof(double), 'd')
     cdef double[:] dA = array((degree, ), sizeof(double), 'd')
-
-    # Which is loss function, mean or sum?
-    if mean:
-        denominator = n_samples
-    else:
-        denominator = 1
+    # for random sampling of feature index
+    cdef np.ndarray[int, ndim=1] indices_features
+    indices_features = np.arange(n_features, dtype=np.int32)
 
     # init anova kernels
     for i in range(n_samples):
@@ -192,16 +198,16 @@ def _cd_direct_arbitrary(self,
     for it in range(max_iter):
         viol = 0
         if fit_linear:
-            viol += _cd_linear_epoch(w, X, y, y_pred, col_norm_sq,
-                                     alpha, loss, denominator)
+            viol += _cd_linear_epoch(w, X, y, y_pred, col_norm_sq, alpha, loss)
 
         if fit_lower:
             for deg in range(2, degree):
                 viol += _cd_epoch(P, degree-deg, X, y, y_pred, lams, deg,
-                                  beta, loss, A, dA, denominator)
+                                  beta, loss, A, dA, indices_features, 
+                                  shuffle, rng)
 
         viol += _cd_epoch(P, 0, X, y, y_pred, lams, degree,
-                          beta, loss, A, dA, denominator)
+                          beta, loss, A, dA, indices_features, shuffle, rng)
 
         if has_callback and it % n_calls == 0:
             if callback(self) is not None:
