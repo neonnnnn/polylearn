@@ -9,7 +9,6 @@ import numpy as np
 from numpy.testing import assert_array_almost_equal
 from sklearn.metrics import mean_squared_error
 from sklearn.utils.testing import assert_warns_message
-from sklearn.utils.extmath import fast_dot
 
 from lightning.impl.dataset_fast import get_dataset
 
@@ -19,7 +18,7 @@ from polylearn.polynomial_network import _lifted_predict as _ds_lifted_predict
 
 # to shave off some test seconds, since the data is tiny, we can use this.
 def _lifted_predict(U, X):
-    return np.product(fast_dot(U, X.T), axis=0).sum(axis=0)
+    return np.product(np.dot(U, X.T), axis=0).sum(axis=0)
 
 max_degree = 5
 n_components = 3
