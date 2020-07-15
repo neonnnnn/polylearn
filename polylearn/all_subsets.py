@@ -9,7 +9,6 @@ from abc import ABCMeta, abstractmethod
 import numpy as np
 from sklearn.utils import check_random_state
 from sklearn.utils.validation import check_array
-from sklearn.externals import six
 
 try:
     from sklearn.exceptions import NotFittedError
@@ -24,7 +23,7 @@ from .kernels import _poly_predict
 from .cd_direct_fast_as import _cd_direct_as
 
 
-class _BaseAllSubsets(six.with_metaclass(ABCMeta, _BasePoly)):
+class _BaseAllSubsets(_BasePoly, metaclass=ABCMeta):
 
     @abstractmethod
     def __init__(self, loss='squared', n_components=2, beta=1,

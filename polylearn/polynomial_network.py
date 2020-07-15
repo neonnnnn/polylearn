@@ -12,7 +12,6 @@ import numpy as np
 from sklearn.preprocessing import add_dummy_feature
 from sklearn.utils import check_random_state
 from sklearn.utils.validation import check_array
-from sklearn.externals import six
 
 try:
     from sklearn.exceptions import NotFittedError
@@ -32,7 +31,7 @@ def _lifted_predict(U, dataset):
     return out
 
 
-class _BasePolynomialNetwork(six.with_metaclass(ABCMeta, _BasePoly)):
+class _BasePolynomialNetwork(_BasePoly, metaclass=ABCMeta):
     @abstractmethod
     def __init__(self, degree=2, loss='squared', n_components=5, beta=1,
                  mean=False, tol=1e-6, fit_lower='augment', warm_start=False,

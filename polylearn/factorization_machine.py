@@ -11,7 +11,6 @@ from sklearn.preprocessing import add_dummy_feature
 from sklearn.utils import check_random_state
 from sklearn.utils.validation import check_array
 from sklearn.utils.extmath import safe_sparse_dot, row_norms
-from sklearn.externals import six
 
 try:
     from sklearn.exceptions import NotFittedError
@@ -27,7 +26,7 @@ from .cd_direct_fast import _cd_direct_ho
 from .cd_direct_arbitrary import _cd_direct_arbitrary
 
 
-class _BaseFactorizationMachine(six.with_metaclass(ABCMeta, _BasePoly)):
+class _BaseFactorizationMachine(_BasePoly, metaclass=ABCMeta):
 
     @abstractmethod
     def __init__(self, degree=2, loss='squared', n_components=2, alpha=1,
